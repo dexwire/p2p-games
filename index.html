@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dungeon Chase</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="game-shell">
+      <h1>Dungeon Chase</h1>
+      <p class="instructions">
+        Move with WASD or arrow keys. The enemy will chase you. You automatically drop a trap every 3 seconds.
+        Traps stun the enemy for 1 second. If the enemy hits you, you lose 1 health. Reach the exit to advance.
+      </p>
+      <canvas id="game" width="800" height="600"></canvas>
+      <div class="hud">
+        <div id="status">Room 1</div>
+        <div id="stats"></div>
+        <button id="restartBtn">Restart</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
