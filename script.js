@@ -34,13 +34,13 @@ const roomState = {
   health: 1,
   playerSpeed: 220,
   dropCooldown: 3000,
-  trapDuration: 2000,
-  stunDuration: 1000,
+  snailDuration: 2500,
   player: null,
   enemies: [],
   chests: [],
   exit: null,
-  trap: null,
+  snails: [],
+  walls: [],
   lastDropTime: 0,
   roomCleared: false,
   gameOver: false,
@@ -54,12 +54,12 @@ function resetGame() {
   roomState.health = 1;
   roomState.playerSpeed = 220;
   roomState.dropCooldown = 3000;
-  roomState.trapDuration = 2000;
-  roomState.stunDuration = 1000;
+  roomState.snailDuration = 2500;
   roomState.enemies = [];
   roomState.chests = [];
   roomState.exit = null;
-  roomState.trap = null;
+  roomState.snails = [];
+  roomState.walls = [];
   roomState.lastDropTime = 0;
   roomState.roomCleared = false;
   roomState.gameOver = false;
@@ -79,12 +79,14 @@ function startRoom() {
   roomState.enemies = [];
   roomState.chests = [];
   roomState.exit = null;
-  roomState.trap = null;
+  roomState.snails = [];
+  roomState.walls = [];
   roomState.roomCleared = false;
   roomState.chestChosen = false;
   roomState.player.x = canvas.width / 2;
   roomState.player.y = canvas.height / 2;
   roomState.player.invulnerableUntil = 0;
+  
   const enemyCount = roomState.room;
   for (let i = 0; i < enemyCount; i += 1) {
     roomState.enemies.push(createEnemy());
@@ -132,7 +134,7 @@ function createEnemy() {
     speed: 90 + roomState.room * 8,
     stunnedUntil: 0,
     wanderTimer: Math.random() * 2,
-    wanderStrength: 0.4 + Math.random() * 0.6,
+    wanderStrength: 1.2 + Math.random() * 1.8,
   };
 }
 
@@ -164,14 +166,49 @@ function update(delta) {
   roomState.player.x = Math.max(20, Math.min(canvas.width - 20, roomState.player.x));
   roomState.player.y = Math.max(20, Math.min(canvas.height - 20, roomState.player.y));
 
+  roomState.walls.forEach((wall) => {
+    const overlapX = Math.abs(roomState.player.x - wall.x) < roomState.player.radius + wall.w / 2;
+    const overlapY = Math.abs(roomState.player.y - wall.y) < roomState.player.radius + wall.h / 2;
+    if (overlapX && overlapY) {
+      if (Math.abs(roomState.player.x - wall.x) > Math.abs(roomState.player.y - wall.y)) {
+        roomState.player.x = roomState.player.x > wall.x ? wall.x + wall.w / 2 + roomState.player.radius : wall.x - wall.w / 2 - roomState.player.radius;
+      } else {
+        roomState.player.y = roomState.player.y > wall.y ? wall.y + wall.h / 2 + roomState.player.radius : wall.y - wall.h / 2 - roomState.player.radius;
+      }
+    }
+  });
+
   if (now - roomState.lastDropTime >= roomState.dropCooldown) {
-    dropTrap();
+    dropSnail();
     roomState.lastDropTime = now;
   }
 
-  if (roomState.trap && now > roomState.trap.expiresAt) {
-    roomState.trap = null;
-  }
+  roomState.snails = roomState.snails.filter((snail) => now <= snail.expiresAt);
+
+  roomState.snails.forEach((snail) => {
+    if (roomState.enemies.length > 0) {
+      const closestEnemy = roomState.enemies.reduce((closest, enemy) => {
+        const distToEnemy = distance(snail, enemy);
+        const distToClosest = distance(snail, closest);
+        return distToEnemy < distToClosest ? enemy : closest;
+      });
+      const dx = closestEnemy.x - snail.x;
+      const dy = closestEnemy.y - snail.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const enemySpeed = 90 + roomState.room * 8;
+      const snailSpeed = (enemySpeed * enemySpeed) / roomState.playerSpeed;
+      snail.x += (dx / dist) * snailSpeed * delta;
+      snail.y += (dy / dist) * snailSpeed * delta;
+
+      const enemyIndexToRemove = roomState.enemies.findIndex((enemy) => distance(snail, enemy) < 25);
+      if (enemyIndexToRemove !== -1) {
+        roomState.enemies.splice(enemyIndexToRemove, 1);
+        snail.expiresAt = 0;
+        roomState.message = 'Snail ate a mouse!';
+        roomState.messageUntil = now + 900;
+      }
+    }
+  });
 
   roomState.enemies.forEach((enemy) => {
     if (enemy.stunnedUntil > now) {
@@ -187,7 +224,7 @@ function update(delta) {
     enemy.wanderTimer -= delta;
     if (enemy.wanderTimer <= 0) {
       enemy.wanderTimer = 0.35 + Math.random() * 0.5;
-      enemy.wanderStrength = 0.3 + Math.random() * 0.7;
+      enemy.wanderStrength = 1.2 + Math.random() * 1.8;
     }
 
     const wanderX = Math.sin(now * 0.001 + enemy.x * 0.01) * enemy.wanderStrength * 18;
@@ -195,6 +232,22 @@ function update(delta) {
 
     enemy.x += chaseX + wanderX * delta;
     enemy.y += chaseY + wanderY * delta;
+
+    roomState.walls.forEach((wall) => {
+      const overlapX = Math.abs(enemy.x - wall.x) < enemy.radius + wall.w / 2;
+      const overlapY = Math.abs(enemy.y - wall.y) < enemy.radius + wall.h / 2;
+      if (overlapX && overlapY) {
+        if (Math.abs(enemy.x - wall.x) > Math.abs(enemy.y - wall.y)) {
+          enemy.x = enemy.x > wall.x ? wall.x + wall.w / 2 + enemy.radius : wall.x - wall.w / 2 - enemy.radius;
+        } else {
+          enemy.y = enemy.y > wall.y ? wall.y + wall.h / 2 + enemy.radius : wall.y - wall.h / 2 - enemy.radius;
+        }
+      }
+    });
+
+    if (roomState.snail && distance(enemy, roomState.snail) < enemy.radius + roomState.snail.radius) {
+      return;
+    }
 
     if (distance(enemy, roomState.player) < enemy.radius + roomState.player.radius) {
       if (now > roomState.player.invulnerableUntil) {
@@ -210,12 +263,7 @@ function update(delta) {
       }
     }
 
-    if (roomState.trap && roomState.trap.active && distance(enemy, roomState.trap) < enemy.radius + roomState.trap.radius) {
-      enemy.stunnedUntil = now + roomState.stunDuration;
-      roomState.trap.active = false;
-      roomState.message = 'Enemy stunned!';
-      roomState.messageUntil = now + 900;
-    }
+
   });
 
   roomState.chests.forEach((chest) => {
@@ -248,18 +296,18 @@ function applyChestEffect(type) {
   } else if (type === 'speed') {
     roomState.playerSpeed += 35;
   } else if (type === 'cooldown') {
-    roomState.dropCooldown = Math.max(1000, roomState.dropCooldown - 300);
+    roomState.dropCooldown = Math.max(500, roomState.dropCooldown - 450);
   }
 }
 
-function dropTrap() {
-  roomState.trap = {
+
+function dropSnail() {
+  roomState.snails.push({
     x: roomState.player.x,
     y: roomState.player.y,
-    radius: 18,
-    active: true,
-    expiresAt: performance.now() + roomState.trapDuration,
-  };
+    radius: 16,
+    expiresAt: performance.now() + roomState.snailDuration,
+  });
 }
 
 function distance(a, b) {
@@ -289,16 +337,27 @@ function draw() {
     ctx.stroke();
   }
 
+  roomState.walls.forEach((wall) => {
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(wall.x - wall.w / 2, wall.y - wall.h / 2, wall.w, wall.h);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(wall.x - wall.w / 2, wall.y - wall.h / 2, wall.w, wall.h);
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(wall.x - wall.w / 2 + 2, wall.y - wall.h / 2 + 2, wall.w - 4, wall.h - 4);
+  });
+
   roomState.chests.forEach((chest) => {
     if (!chest.active) {
       return;
     }
     ctx.fillStyle = '#f59e0b';
     ctx.fillRect(chest.x - 14, chest.y - 14, 28, 28);
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px Arial';
+    ctx.font = '18px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(chest.type.toUpperCase(), chest.x, chest.y + 4);
+    ctx.textBaseline = 'middle';
+    const chestIcons = { heal: '❤️', cooldown: '⏱️', speed: '⚡' };
+    ctx.fillText(chestIcons[chest.type], chest.x, chest.y);
   });
 
   if (roomState.exit) {
@@ -311,24 +370,24 @@ function draw() {
     ctx.fillText('EXIT', roomState.exit.x, roomState.exit.y + 4);
   }
 
-  if (roomState.trap && roomState.trap.active) {
-    ctx.fillStyle = '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(roomState.trap.x, roomState.trap.y, roomState.trap.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  roomState.enemies.forEach((enemy) => {
-    ctx.fillStyle = enemy.stunnedUntil > performance.now() ? '#8b5cf6' : '#ef4444';
-    ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-    ctx.fill();
+  roomState.snails.forEach((snail) => {
+    ctx.font = '28px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🐌', snail.x, snail.y);
   });
 
-  ctx.fillStyle = '#38bdf8';
-  ctx.beginPath();
-  ctx.arc(roomState.player.x, roomState.player.y, roomState.player.radius, 0, Math.PI * 2);
-  ctx.fill();
+  roomState.enemies.forEach((enemy) => {
+    ctx.font = '32px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(enemy.stunnedUntil > performance.now() ? '🐭' : '🐭', enemy.x, enemy.y);
+  });
+
+  ctx.font = '36px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🐱', roomState.player.x, roomState.player.y);
 
   if (roomState.message && performance.now() < roomState.messageUntil) {
     ctx.fillStyle = 'rgba(248, 250, 252, 0.95)';
