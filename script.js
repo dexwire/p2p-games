@@ -131,6 +131,8 @@ function createEnemy() {
     radius: 14,
     speed: 90 + roomState.room * 8,
     stunnedUntil: 0,
+    wanderTimer: Math.random() * 2,
+    wanderStrength: 0.4 + Math.random() * 0.6,
   };
 }
 
@@ -179,8 +181,20 @@ function update(delta) {
     const dx = roomState.player.x - enemy.x;
     const dy = roomState.player.y - enemy.y;
     const dist = Math.hypot(dx, dy) || 1;
-    enemy.x += (dx / dist) * enemy.speed * delta;
-    enemy.y += (dy / dist) * enemy.speed * delta;
+    const chaseX = (dx / dist) * enemy.speed * delta;
+    const chaseY = (dy / dist) * enemy.speed * delta;
+
+    enemy.wanderTimer -= delta;
+    if (enemy.wanderTimer <= 0) {
+      enemy.wanderTimer = 0.35 + Math.random() * 0.5;
+      enemy.wanderStrength = 0.3 + Math.random() * 0.7;
+    }
+
+    const wanderX = Math.sin(now * 0.001 + enemy.x * 0.01) * enemy.wanderStrength * 18;
+    const wanderY = Math.cos(now * 0.0015 + enemy.y * 0.01) * enemy.wanderStrength * 18;
+
+    enemy.x += chaseX + wanderX * delta;
+    enemy.y += chaseY + wanderY * delta;
 
     if (distance(enemy, roomState.player) < enemy.radius + roomState.player.radius) {
       if (now > roomState.player.invulnerableUntil) {
