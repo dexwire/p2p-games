@@ -15,6 +15,14 @@ const keys = {
   d: false,
 };
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((error) => {
+      console.error('Service worker registration failed:', error);
+    });
+  });
+}
+
 function setKeyState(event, isPressed) {
   const key = event.key || '';
   const code = event.code || '';

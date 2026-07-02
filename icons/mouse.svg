@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Mouse icon">
+  <rect width="128" height="128" rx="28" fill="#0f172a"/>
+  <ellipse cx="64" cy="74" rx="34" ry="30" fill="#d4d4d8"/>
+  <ellipse cx="64" cy="68" rx="22" ry="20" fill="#a3a3a3"/>
+  <circle cx="58" cy="62" r="4" fill="#111827"/>
+  <circle cx="72" cy="62" r="4" fill="#111827"/>
+  <path d="M48 48c6-14 26-20 38-12 8 6 10 18 4 28" stroke="#111827" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M46 54l-16-8" stroke="#111827" stroke-width="8" stroke-linecap="round"/>
+  <path d="M82 54l16-8" stroke="#111827" stroke-width="8" stroke-linecap="round"/>
+  <path d="M54 90l-8 24" stroke="#111827" stroke-width="8" stroke-linecap="round"/>
+  <path d="M74 90l8 24" stroke="#111827" stroke-width="8" stroke-linecap="round"/>
+</svg>
